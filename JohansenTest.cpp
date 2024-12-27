@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
     DoubleMatrix xMat;
     int nlags = 1;
     int cointegrationCount = 0;
-#if 1
+#if 0
     for (int i = 0; i < 4; i++)
     {
         cout << endl;
@@ -220,7 +220,8 @@ int main(int argc, char* argv[])
     FileData(xMat);
     JohansenHelper johansenHelper(xMat);
 
-    for (int i = 1; i < 365; i++)
+    // for (int i = 1; i < 365; i++)
+    for (int i = 1; i < 10; i++)
     {
         johansenHelper.DoMaxEigenValueTest(i);
         int cointCount = johansenHelper.CointegrationCount();
@@ -229,6 +230,13 @@ int main(int argc, char* argv[])
             printf("lags: %d, count: %d\n", i, cointCount);
         }
         // cout << "lags: " << i << " coint count: " << cointCount << endl;
+
+        vector<MaxEigenData> outStats = johansenHelper.GetOutStats();
+        for (int ij = 0; ij < (int)outStats.size(); ij++)
+        {
+            printf("[%d] %d Test Stat: %f 90: %f 95: %f 99: %f\n",
+                i, ij, outStats[ij].TestStatistic, outStats[ij].CriticalValue90, outStats[ij].CriticalValue95, outStats[ij].CriticalValue99);
+        }
     }
 #endif
     return 0;
