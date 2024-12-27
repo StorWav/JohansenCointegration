@@ -1,21 +1,22 @@
 #include "JohansenHelper.h"
 
 extern "C" {
-    int coint_eigen(const double* doubleMat, int sampleCount, int seriesCount, int nlags, double* output_eig, double* output_stat, double* output_cvm) {
+    int coint_eigen(const double* doubleMat, int sampleCount, int seriesCount, int nlags, double* output_eig, double* output_stat, double* output_cvm) 
+    {
         int nc = seriesCount;
         int nr = sampleCount;
-        gsl_matrix* xMat = gsl_matrix_alloc(nr, nc);
+        gsl_matrix* xMat_gsl = gsl_matrix_alloc(nr, nc);
 
         for (int i = 0; i < nc; i++)
         {
             for (int j = 0; j < nr; j++)
             {
-                gsl_matrix_set(xMat, j, i, doubleMat[j*seriesCount + i]);
+                gsl_matrix_set(xMat_gsl, j, i, doubleMat[j*seriesCount + i]);
                 // printf("[%d, %d]: %f\n", j, i, doubleMat[j*seriesCount + i]);
             }
         }
 
-        JohansenHelper johansenHelper(make_shared_matrix(xMat));
+        JohansenHelper johansenHelper(make_shared_matrix(xMat_gsl));
         johansenHelper.DoMaxEigenValueTest(nlags);
 
         const vector<MaxEigenData> &outStats = johansenHelper.GetOutStats();
@@ -37,6 +38,33 @@ extern "C" {
 
         int cointCount = johansenHelper.CointegrationCount();
         return cointCount;
+    }
+
+
+    void coint_rolling(const double* doubleMat, int sampleCount, int seriesCount, int nlags, int window, int* output_count)
+    {
+        int nc = seriesCount;
+        int nr = sampleCount;
+        gsl_matrix* xMat_gsl = gsl_matrix_alloc(nr, nc);
+
+        for (int i = 0; i < nc; i++)
+        {
+            for (int j = 0; j < nr; j++)
+            {
+                gsl_matrix_set(xMat_gsl, j, i, doubleMat[j*seriesCount + i]);
+                // printf("[%d, %d]: %f\n", j, i, doubleMat[j*seriesCount + i]);
+            }
+        }
+
+        shared_matrix xMat = make_shared_matrix(xMat_gsl);
+
+        for (int i = window - 1; i < nr; i++)
+        {
+            shared_matrix subMax = GetSubMatrix(xMat, i - window + 1, i, -1, -1);
+            JohansenHelper johansenHelper(subMax);
+            johansenHelper.DoMaxEigenValueTest(nlags);
+            output_count[i] = johansenHelper.CointegrationCount();
+        }
     }
 }
 

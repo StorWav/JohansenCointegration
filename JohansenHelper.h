@@ -10,6 +10,7 @@ using namespace CommonTypes;
 
 typedef shared_ptr<gsl_matrix> shared_matrix;
 shared_matrix make_shared_matrix(gsl_matrix* x);
+shared_matrix GetSubMatrix(shared_matrix xMat, int nBeginRow, int nEndRow, int nBeginCol, int nEndCol);
 
 class JohansenHelper
 {
