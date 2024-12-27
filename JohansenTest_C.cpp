@@ -3,6 +3,8 @@
 extern "C" {
     int coint_eigen(const double* doubleMat, int sampleCount, int seriesCount, int nlags, double* output_eig, double* output_stat, double* output_cvm) 
     {
+        gsl_set_error_handler_off(); // Disable default GSL error handler
+
         int nc = seriesCount;
         int nr = sampleCount;
         gsl_matrix* xMat_gsl = gsl_matrix_alloc(nr, nc);
@@ -43,6 +45,8 @@ extern "C" {
 
     void coint_rolling(const double* doubleMat, int sampleCount, int seriesCount, int nlags, int window, int* output_count)
     {
+        gsl_set_error_handler_off(); // Disable default GSL error handler
+
         int nc = seriesCount;
         int nr = sampleCount;
         gsl_matrix* xMat_gsl = gsl_matrix_alloc(nr, nc);
