@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
         {
             printf("lags: %d, count: %d\n", i, cointCount);
         }
-        cout << "lags: " << i << " coint count: " << cointCount << endl;
+        // cout << "lags: " << i << " coint count: " << cointCount << endl;
     }
 #endif
     return 0;

@@ -3,47 +3,33 @@
 
 #include "CommonTypes.h"
 #include <gsl/gsl_matrix.h>
+#include <memory>
 
 using namespace std;
 using namespace CommonTypes;
 
+typedef shared_ptr<gsl_matrix> shared_matrix;
+shared_matrix make_shared_matrix(gsl_matrix* x);
+
 class JohansenHelper
 {
 public:
-    JohansenHelper(DoubleMatrix xMat);
-    ~JohansenHelper();
+    JohansenHelper(const JohansenHelper &x) {*this = x;};
+    JohansenHelper(const DoubleMatrix &xMat);
+    JohansenHelper(shared_matrix xMat) {this->xMat_gsl = xMat;}
 
     void DoMaxEigenValueTest(int nlags);
-    int CointegrationCount();
-    vector<MaxEigenData> GetOutStats();
-    DoubleVector GetEigenValues();
-    DoubleMatrix GetEigenVecMatrix();
+    int CointegrationCount() const;
+    const vector<MaxEigenData> &GetOutStats() const {return this->outStats;}
+    const DoubleVector &GetEigenValues() const {return this->eigenValuesVec;}
+    const DoubleMatrix &GetEigenVecMatrix() const {return this->eigenVecMatrix;}
 
 private:
     // Data members
-    gsl_matrix* xMat_gsl;
+    shared_matrix xMat_gsl;
     vector<MaxEigenData> outStats;
     DoubleVector eigenValuesVec;
     DoubleMatrix eigenVecMatrix;
-
-    // Methods
-    gsl_matrix* GetSubMatrix(gsl_matrix* xMat,
-        int nBeginRow, int nEndRow,
-        int nBeginCol, int nEndCol);
-        gsl_matrix* GetMatrixDifference(gsl_matrix* xMat);
-    gsl_matrix* DeMean(gsl_matrix* xMat);
-    gsl_matrix* GetMatrixLagged(gsl_matrix* xMat, int nlags);
-    double GetAverage(gsl_vector* x);
-    void MatrixDivideByElem(gsl_matrix* xMat, double val);
-    gsl_matrix* MatrixTransposeImpl(gsl_matrix* m);
-    gsl_matrix* MatrixMultiply(gsl_matrix* A, gsl_matrix* B);
-    gsl_matrix* GetMatrixInverse(gsl_matrix* inMat);
-    gsl_matrix* MatrixDivide(gsl_matrix* xMat, gsl_matrix* yMat);
-    gsl_matrix* DoubleMatrixToGSLMatrix(DoubleMatrix doubleMat);
-    gsl_vector* DoubleVectorToGSLVector(DoubleVector doubleVec);
-    DoubleMatrix GSLMatrixToDoubleMatrix(gsl_matrix* gslMat);
-    DoubleVector GSLVectorToDoubleVector(gsl_vector* gslMat);
-    DoubleVector GSLComplexVecToAbsDoubleVector(gsl_vector_complex* gslVec);
-    DoubleMatrix GSLComplexMatToAbsDoubleMatrix(gsl_matrix_complex* gslMat);
 };
+
 #endif
