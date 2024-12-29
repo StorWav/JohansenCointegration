@@ -8,7 +8,7 @@
 void my_gsl_error_handler(const char * reason,
     const char * file, int line, int gsl_errno) {
     const char * gsl_error_string = gsl_strerror(gsl_errno);
-    std::string msg = std::string(reason) + " (" + file + ":" + std::to_string(line) + ")";
+    std::string msg = std::string(reason) + " (" + file + ":" + std::to_string(line) + ") ";
     msg += std::to_string(gsl_errno) + ":" + std::string(gsl_error_string);
     throw std::runtime_error(msg);
 }
