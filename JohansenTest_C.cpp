@@ -1,29 +1,45 @@
 #include "JohansenHelper.h"
 
+#include <gsl/gsl_errno.h>
+#include <exception>
+#include <stdexcept>
+#include <iostream>
+
+void my_gsl_error_handler(const char * reason,
+    const char * file, int line, int gsl_errno) {
+    const char * gsl_error_string = gsl_strerror(gsl_errno);
+    std::string msg = std::string(reason) + " (" + file + ":" + std::to_string(line) + ")";
+    msg += std::to_string(gsl_errno) + ":" + std::string(gsl_error_string);
+    throw std::runtime_error(msg);
+}
+
 extern "C" {
-    int coint_eigen(const double* doubleMat, int sampleCount, int seriesCount, int nlags, double* output_eig, double* output_stat, double* output_cvm) 
-    {
-        gsl_set_error_handler_off(); // Disable default GSL error handler
+    int coint_eigen(const double * doubleMat, int sampleCount, int seriesCount, int nlags, double * output_eig, double * output_stat, double * output_cvm) {
+        // gsl_set_error_handler_off(); // Disable default GSL error handler
+        gsl_set_error_handler(my_gsl_error_handler);
 
         int nc = seriesCount;
         int nr = sampleCount;
-        gsl_matrix* xMat_gsl = gsl_matrix_alloc(nr, nc);
+        gsl_matrix * xMat_gsl = gsl_matrix_alloc(nr, nc);
 
-        for (int i = 0; i < nc; i++)
-        {
-            for (int j = 0; j < nr; j++)
-            {
-                gsl_matrix_set(xMat_gsl, j, i, doubleMat[j*seriesCount + i]);
+        for (int i = 0; i < nc; i++) {
+            for (int j = 0; j < nr; j++) {
+                gsl_matrix_set(xMat_gsl, j, i, doubleMat[j * seriesCount + i]);
                 // printf("[%d, %d]: %f\n", j, i, doubleMat[j*seriesCount + i]);
             }
         }
 
         JohansenHelper johansenHelper(make_shared_matrix(xMat_gsl));
-        johansenHelper.DoMaxEigenValueTest(nlags);
 
-        const vector<MaxEigenData> &outStats = johansenHelper.GetOutStats();
-        for (int i = 0; i < (int)outStats.size(); i++)
-        {
+        try {
+            johansenHelper.DoMaxEigenValueTest(nlags);
+        } catch (const std::exception & e) {
+            std::cerr << "Caught exception: " << e.what() << std::endl;
+            return -1000;
+        }
+
+        const vector < MaxEigenData > & outStats = johansenHelper.GetOutStats();
+        for (int i = 0; i < (int) outStats.size(); i++) {
             output_stat[i] = outStats[i].TestStatistic;
             output_cvm[i * 3 + 0] = outStats[i].CriticalValue90;
             output_cvm[i * 3 + 1] = outStats[i].CriticalValue95;
@@ -32,9 +48,8 @@ extern "C" {
             //     i, outStats[i].TestStatistic, outStats[i].CriticalValue90, outStats[i].CriticalValue95, outStats[i].CriticalValue99);
         }
 
-        const DoubleVector &eigenValuesVec = johansenHelper.GetEigenValues();
-        for (int i = 0; i < (int)eigenValuesVec.size(); i++)
-        {
+        const DoubleVector & eigenValuesVec = johansenHelper.GetEigenValues();
+        for (int i = 0; i < (int) eigenValuesVec.size(); i++) {
             output_eig[i] = eigenValuesVec[i];
         }
 
@@ -42,32 +57,33 @@ extern "C" {
         return cointCount;
     }
 
-
-    void coint_rolling(const double* doubleMat, int sampleCount, int seriesCount, int nlags, int window, int* output_count)
-    {
-        gsl_set_error_handler_off(); // Disable default GSL error handler
+    void coint_rolling(const double * doubleMat, int sampleCount, int seriesCount, int nlags, int window, int * output_count) {
+        // gsl_set_error_handler_off(); // Disable default GSL error handler
+        gsl_set_error_handler(my_gsl_error_handler);
 
         int nc = seriesCount;
         int nr = sampleCount;
-        gsl_matrix* xMat_gsl = gsl_matrix_alloc(nr, nc);
+        gsl_matrix * xMat_gsl = gsl_matrix_alloc(nr, nc);
 
-        for (int i = 0; i < nc; i++)
-        {
-            for (int j = 0; j < nr; j++)
-            {
-                gsl_matrix_set(xMat_gsl, j, i, doubleMat[j*seriesCount + i]);
+        for (int i = 0; i < nc; i++) {
+            for (int j = 0; j < nr; j++) {
+                gsl_matrix_set(xMat_gsl, j, i, doubleMat[j * seriesCount + i]);
                 // printf("[%d, %d]: %f\n", j, i, doubleMat[j*seriesCount + i]);
             }
         }
 
         shared_matrix xMat = make_shared_matrix(xMat_gsl);
 
-        for (int i = window - 1; i < nr; i++)
-        {
+        for (int i = window - 1; i < nr; i++) {
             shared_matrix subMax = GetSubMatrix(xMat, i - window + 1, i, -1, -1);
             JohansenHelper johansenHelper(subMax);
-            johansenHelper.DoMaxEigenValueTest(nlags);
-            output_count[i] = johansenHelper.CointegrationCount();
+            try {
+                johansenHelper.DoMaxEigenValueTest(nlags);
+                output_count[i] = johansenHelper.CointegrationCount();
+            } catch (const std::exception & e) {
+                std::cerr << "Caught exception: " << e.what() << std::endl;
+                output_count[i] = -1000;
+            }
         }
     }
 }
@@ -107,46 +123,4 @@ $ ./JohansenTest  # results between C++ and Python are close but not identical
 
 $ ldd ./JohansenTest_C.so
 $ nm -D ./JohansenTest_C.so  | grep gsl_matrix_set_col
-
-$ LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu python
-import numpy as np
-from ctypes import CDLL, c_double, POINTER, c_int, util
-from numba import njit, jit
-
-# Load the compiled shared library
-lib = CDLL('./JohansenTest_C.so')
-
-# Bind the C++ function
-coint_eigen_c = lib.coint_eigen
-coint_eigen_c.argtypes = [POINTER(c_double), c_int, c_int, c_int, POINTER(c_double)]
-coint_eigen_c.restype = c_int
-
-def call_cpp_coint_eigen(input_matrix, nlags):
-    """
-    Call the C++ function to flatten the 2D array.
-    """
-    rows, cols = input_matrix.shape
-    output_eig = np.empty(cols, dtype=np.float64)
-    output_stat = np.empty(cols, dtype=np.float64)
-    output_cvm = np.empty(cols * 3, dtype=np.float64)
-    # Call the C++ function
-    cnt = coint_eigen_c(
-        input_matrix.ctypes.data_as(POINTER(c_double)),
-        c_int(rows),
-        c_int(cols),
-        c_int(nlags),
-        output_eig.ctypes.data_as(POINTER(c_double)),
-        output_stat.ctypes.data_as(POINTER(c_double)),
-        output_cvm.ctypes.data_as(POINTER(c_double)),
-    )
-    return cnt, output_eig, output_stat, output_cvm.reshape((cols, 3))
-
-data = np.random.rand(20, 4)
-cnt, output_eig, output_stat, output_cvm = call_cpp_coint_eigen(data, 1)
-from statsmodels.tsa.vector_ar.vecm import coint_johansen
-result = coint_johansen(data, det_order=0, k_ar_diff=1)
-print(result.cvm, result.trace_stat, result.trace_stat_crit_vals)
-np.testing.assert_allclose(result.eig, output_eig)
-np.testing.assert_allclose(result.cvm, output_cvm)
-print(output_stat, result.trace_stat)
 */
